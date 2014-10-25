@@ -1,0 +1,82 @@
+---
+title: "Machine"
+author: "Alex R Abraham"
+date: "Saturday, October 25, 2014"
+output: html_document
+---
+
+Reading the files. After initial read there were many obsersations which are either either or have no value. since there is no way to interpret either, changed the read to intepret both no value and NA as NA
+
+```{r}
+library(caret)
+train <- read.csv("./Machine/data/pml-training.csv", header = TRUE, na.strings = c("NA", ""))
+test <- read.csv("./Machine/data/pml-testing.csv", header =TRUE, na.strings=c("NA",""))
+```
+
+Basic exploratory graph. trying to see if ignoring NA rows  keeps the orginal data file outcomes for the classe
+```{r, echo=TRUE}
+smallTrain <- na.omit(train)
+dim(train)
+dim(smallTrain)
+par(mfrow=c(1,2))
+plot(train$user_name, train$classe)
+plot(smallTrain$user_name, smallTrain$classe)
+head(train, 10)
+
+```
+
+Looks like most rows are have NA's for many of the predictors and the subset of complete ones are not representative of the whole data. Will elimnate the columns which are largely NA or no value
+1. Use colSums to elimate NA or "" colums 
+2. Eliminate the the first seven columns as they are seq no,  user name,additive variables timestamp and two flags with little change in values
+3. Split the  data into a training dataset tTrain ( 70% of training) and validation dataset vTrain (30% or training)
+
+```{r, echo=TRUE}
+naCols <- colSums(is.na(train))
+train <- train[, naCols == 0]
+test <- test[, naCols == 0]
+train <- train[-c(1,2,3,4,5,6,7)]
+test <- test[-c(1,2,3,4,5,6,7)]
+
+summary(train)
+dim(train)
+dim(test)
+
+inTrain <- createDataPartition(y=train$classe,p=0.7, list=FALSE)
+tTrain <- train[inTrain,]
+vTrain <- train[-inTrain,]
+
+```
+
+Model creation
+We will start with a priciple component analysis to identify the variables contributing maximum to the variables. We will use a high cut-off of 99%
+
+```{r, echo=TRUE}
+preProc <- preProcess(tTrain[, -53], method = "pca", thresh = 0.99)
+trainPC <- predict(preProc, tTrain[, -53])
+validPC <- predict(preProc, vTrain[, -53])
+
+tControl <- trainControl(method = "cv", number = 3, repeats = 2)
+modelFit <- train(tTrain$classe ~ ., method = "rf", data = trainPC, trControl=tControl)
+modelFit
+
+prfValid <- predict(modelFit, validPC)
+confusionMatrix(prfValid, vTrain$classe)
+
+postResample(prfValid, vTrain$classe)
+
+```
+##### Predictions
+The model is reasonably accurate at 97.9 % . using the model we have to predict the final outcome.
+The out of sample error(1-Accurancy) :
+
+```{r, echo=TRUE}
+1-postResample(prfValid, vTrain$classe)[[1]]
+```
+
+Predicted Results
+```{r, echo=TRUE}
+testPC <- predict(preProc, test[, -53])
+prfTest <- predict(modelFit, testPC)
+test$classe<- prfTest
+test
+```
