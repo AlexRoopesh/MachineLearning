@@ -4,8 +4,13 @@ author: "Alex R Abraham"
 date: "Saturday, October 25, 2014"
 output: html_document
 ---
+#### Executive Summary
+The intent of this assignment is look at the data collected from a group of people who are part of the quantified self movement. Using this data, a model was created to predict what activity each member whose data was collected is performing. This model was then used to predict results for 20 test cases provided. A simple Random Forest model with three folds of data, repeated twice gave a model with 97.9 % accuracy. This then when tested against the test data gave all accurate results. Hence the model was not further fine tuned. 
+The process of arriving at the model, its accuracy, out of sample error and prediction results are detailed in this assignment. 
 
-Reading the files. After initial read there were many obsersations which are either either or have no value. since there is no way to interpret either, changed the read to intepret both no value and NA as NA
+#### Data Exploration
+
+Reading the files. After initial read there were many observations which are either "NA" or had no value. Since neither will add any value to the model,  changed both values to be interpreted as "NA" at the time of read. This is then later used to remove columns which predominately "NA" only
 
 ```{r}
 library(caret)
@@ -13,7 +18,7 @@ train <- read.csv("./Machine/data/pml-training.csv", header = TRUE, na.strings =
 test <- read.csv("./Machine/data/pml-testing.csv", header =TRUE, na.strings=c("NA",""))
 ```
 
-Basic exploratory graph. trying to see if ignoring NA rows  keeps the orginal data file outcomes for the classe
+Basic exploratory graph. trying to see if ignoring NA rows  keeps the original data file's outcomes, for the classe
 ```{r, echo=TRUE}
 smallTrain <- na.omit(train)
 dim(train)
@@ -21,14 +26,14 @@ dim(smallTrain)
 par(mfrow=c(1,2))
 plot(train$user_name, train$classe)
 plot(smallTrain$user_name, smallTrain$classe)
-head(train, 10)
 
 ```
 
-Looks like most rows are have NA's for many of the predictors and the subset of complete ones are not representative of the whole data. Will elimnate the columns which are largely NA or no value
-1. Use colSums to elimate NA or "" colums 
-2. Eliminate the the first seven columns as they are seq no,  user name,additive variables timestamp and two flags with little change in values
-3. Split the  data into a training dataset tTrain ( 70% of training) and validation dataset vTrain (30% or training)
+na.omit redcues the total dataset to approx less than 5 percent of the original dataset. From the explorative graph it is also clear that the small set is not representative of the original data. Also considering that there are many columns which are predominately NA's ignoring them is more likely to give us a more robust model. The approach for cleaning the data overall is
+
+1. Use colSums to elimate NA or "" columns 
+2. Eliminate the first seven columns as they are seq no,  user name,additive variables timestamp and two flags with little change in values
+3. Split the data into a training dataset tTrain ( 70% of training) and validation dataset vTrain (30% or training)
 
 ```{r, echo=TRUE}
 naCols <- colSums(is.na(train))
@@ -37,7 +42,6 @@ test <- test[, naCols == 0]
 train <- train[-c(1,2,3,4,5,6,7)]
 test <- test[-c(1,2,3,4,5,6,7)]
 
-summary(train)
 dim(train)
 dim(test)
 
@@ -47,8 +51,9 @@ vTrain <- train[-inTrain,]
 
 ```
 
-Model creation
-We will start with a priciple component analysis to identify the variables contributing maximum to the variables. We will use a high cut-off of 99%
+#### Model creation
+We will start with a principle component analysis to identify the variables contributing maximum to the variance. We will use a high cut-off of 99%
+We see from the plots the variables accounts for most variability. We then use the preProc object obtained from the PCA for our model training and creation
 
 ```{r, echo=TRUE}
 preProc <- preProcess(tTrain[, -53], method = "pca", thresh = 0.99)
@@ -56,8 +61,12 @@ trainPC <- predict(preProc, tTrain[, -53])
 validPC <- predict(preProc, vTrain[, -53])
 
 tControl <- trainControl(method = "cv", number = 3, repeats = 2)
-modelFit <- train(tTrain$classe ~ ., method = "rf", data = trainPC, trControl=tControl)
+modelFit <- train(tTrain$classe ~ ., method = "rf", data = trainPC, trControl=tControl, importance = TRUE)
 modelFit
+
+par(mfrow=c(1,2))
+varImpPlot(modelFit$finalModel, main = "Principal  components by importance")
+
 
 prfValid <- predict(modelFit, validPC)
 confusionMatrix(prfValid, vTrain$classe)
@@ -65,18 +74,18 @@ confusionMatrix(prfValid, vTrain$classe)
 postResample(prfValid, vTrain$classe)
 
 ```
-##### Predictions
-The model is reasonably accurate at 97.9 % . using the model we have to predict the final outcome.
-The out of sample error(1-Accurancy) :
+The model is reasonably accurate at 97.9 % . We will test the final outcome using this model. You will find later that this model predicts all 20 test cases accurately. No further model fine tuning was done for the purpose of this test.
+
+The out of sample error rate(1-Accurancy) for this model  is fairly accurate as well and is 
 
 ```{r, echo=TRUE}
 1-postResample(prfValid, vTrain$classe)[[1]]
 ```
 
-Predicted Results
+####Predicted Results
 ```{r, echo=TRUE}
 testPC <- predict(preProc, test[, -53])
 prfTest <- predict(modelFit, testPC)
 test$classe<- prfTest
-test
+test[c("problem_id","classe")]
 ```
