@@ -1,7 +1,6 @@
 ---
-title: "Machine"
-author: "Alex R Abraham"
-date: "Saturday, October 25, 2014"
+title: "Machine Learning Assignment"
+
 output: html_document
 ---
 #### Executive Summary
@@ -10,7 +9,7 @@ The process of arriving at the model, its accuracy, out of sample error and pred
 
 #### Data Exploration
 
-Reading the files. After initial read there were many observations which are either "NA" or had no value. Since neither will add any value to the model,  changed both values to be interpreted as "NA" at the time of read. This is then later used to remove columns which predominately "NA" only
+Reading the files. After initial read there were many observations which are either "NA" or had no value. Since neither will add any value to the model,  changed both values to be interpreted as "NA" at the time of read. This is then later used to remove columns which  are predominantly "NA".
 
 ```{r}
 library(caret)
@@ -18,7 +17,8 @@ train <- read.csv("./Machine/data/pml-training.csv", header = TRUE, na.strings =
 test <- read.csv("./Machine/data/pml-testing.csv", header =TRUE, na.strings=c("NA",""))
 ```
 
-Basic exploratory graph. trying to see if ignoring NA rows  keeps the original data file's outcomes, for the classe
+In this section we draw a basic exploratory graph to find if ignoring NA rows  retains the original data file's distribution for "classe".
+
 ```{r, echo=TRUE}
 smallTrain <- na.omit(train)
 dim(train)
@@ -29,10 +29,10 @@ plot(smallTrain$user_name, smallTrain$classe)
 
 ```
 
-na.omit redcues the total dataset to approx less than 5 percent of the original dataset. From the explorative graph it is also clear that the small set is not representative of the original data. Also considering that there are many columns which are predominately NA's ignoring them is more likely to give us a more robust model. The approach for cleaning the data overall is
+Eliminating NA observations reduces the size of the new dataset to approximately  less than 5 percent of the original dataset. From the explorative graph it is also clear that the small set is not representative of the original data. Considering that there are many columns that are mostly NA's,ignoring them is more likely to give us a more robust model. The approach used for cleaning the data is
 
 1. Use colSums to elimate NA or "" columns 
-2. Eliminate the first seven columns as they are seq no,  user name,additive variables timestamp and two flags with little change in values
+2. Eliminate the first seven columns as they are seq no,  user name,additive variables, timestamp and two flags with little change in values
 3. Split the data into a training dataset tTrain ( 70% of training) and validation dataset vTrain (30% or training)
 
 ```{r, echo=TRUE}
@@ -52,8 +52,7 @@ vTrain <- train[-inTrain,]
 ```
 
 #### Model creation
-We will start with a principle component analysis to identify the variables contributing maximum to the variance. We will use a high cut-off of 99%
-We see from the plots the variables accounts for most variability. We then use the preProc object obtained from the PCA for our model training and creation
+We will start with a principle component analysis to identify the variables contributing maximum to the variance. We will use a high cut-off of 99%.  The variables accounting for the most variability can be seen in this plot. We then use the preProc object obtained from the PCA for our model training and creation.
 
 ```{r, echo=TRUE}
 preProc <- preProcess(tTrain[, -53], method = "pca", thresh = 0.99)
@@ -76,13 +75,14 @@ postResample(prfValid, vTrain$classe)
 ```
 The model is reasonably accurate at 97.9 % . We will test the final outcome using this model. You will find later that this model predicts all 20 test cases accurately. No further model fine tuning was done for the purpose of this test.
 
-The out of sample error rate(1-Accurancy) for this model  is fairly accurate as well and is 
+The out of sample error rate(1-Accuracy) for this model  is fairly accurate as well and is 
 
 ```{r, echo=TRUE}
 1-postResample(prfValid, vTrain$classe)[[1]]
 ```
 
 ####Predicted Results
+
 ```{r, echo=TRUE}
 testPC <- predict(preProc, test[, -53])
 prfTest <- predict(modelFit, testPC)
